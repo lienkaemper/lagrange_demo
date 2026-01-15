@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 import numpy as np
 
 class LagrangeMultiplierApp:
@@ -41,7 +42,16 @@ class LagrangeMultiplierApp:
         self.zoom_scale_entry = ttk.Entry(frame, width=10)
         self.zoom_scale_entry.grid(row=4, column=1, sticky=tk.W, padx=5)
 
-        ttk.Button(frame, text="Generate Plots", command=self.generate_plots).grid(row=5, column=0, columnspan=2, pady=10)
+        # Checkboxes for selecting plots
+        self.plot_3d_var = tk.BooleanVar(value=True)
+        self.plot_2d_var = tk.BooleanVar(value=True)
+        self.plot_zoomed_var = tk.BooleanVar(value=True)
+
+        ttk.Checkbutton(frame, text="3D Surface Plot", variable=self.plot_3d_var).grid(row=5, column=0, sticky=tk.W)
+        ttk.Checkbutton(frame, text="2D Contour Plot", variable=self.plot_2d_var).grid(row=6, column=0, sticky=tk.W)
+        ttk.Checkbutton(frame, text="Zoomed-in 2D Plot", variable=self.plot_zoomed_var).grid(row=7, column=0, sticky=tk.W)
+
+        ttk.Button(frame, text="Generate Plots", command=self.generate_plots).grid(row=8, column=0, columnspan=2, pady=10)
 
     def create_plot_area(self):
         self.plot_frame = ttk.Frame(self.root)
@@ -75,10 +85,13 @@ class LagrangeMultiplierApp:
             print(f"Invalid input for functions: {e}")
             return
 
-        # Generate plots if inputs are valid
-        self.plot_3d_surface(f_str, g_str, c)
-        self.plot_2d_contour(f_str, g_str, c)
-        self.plot_zoomed_2d(f_str, g_str, c, x_star_str, y_star_str)
+        # Generate plots based on checkboxes
+        if self.plot_3d_var.get():
+            self.plot_3d_surface(f_str, g_str, c)
+        if self.plot_2d_var.get():
+            self.plot_2d_contour(f_str, g_str, c)
+        if self.plot_zoomed_var.get():
+            self.plot_zoomed_2d(f_str, g_str, c, x_star_str, y_star_str, zoom_scale_str)
 
     def plot_3d_surface(self, f_str, g_str, c):
         fig = Figure(figsize=(5, 4), dpi=100)
@@ -144,15 +157,16 @@ class LagrangeMultiplierApp:
         try:
             # Contour for g(x, y) = c
             G = eval(g_str, {"x": X, "y": Y, "np": np})
-            ax.contour(X, Y, G, levels=[c], colors='red', linewidths=2, linestyles='dashed')
+            ax.contour(X, Y, G, levels=[c], colors='red', linewidths=2)
         except Exception as e:
             print(f"Error evaluating g(x, y): {e}")
             return
 
-        # Gradient vector field of f(x, y)
+        # Gradient vector field of f(x, y) with reduced density
         f_x = np.gradient(Z, axis=1)
         f_y = np.gradient(Z, axis=0)
-        ax.quiver(X, Y, f_x, f_y, color='blue', scale=50, width=0.002, label='Gradient of f')
+        skip = (slice(None, None, 5), slice(None, None, 5))  # Reduce density by skipping every 5th arrow
+        ax.quiver(X[skip], Y[skip], f_x[skip], f_y[skip], color='blue', scale=50, width=0.002, label='Gradient of f')
 
         ax.set_title("2D Contour Plot with Heatmap and Gradient Field")
         ax.set_xlabel("x")
@@ -163,14 +177,14 @@ class LagrangeMultiplierApp:
         canvas_widget = canvas.get_tk_widget()
         canvas_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    def plot_zoomed_2d(self, f_str, g_str, c, x_star_str, y_star_str):
+    def plot_zoomed_2d(self, f_str, g_str, c, x_star_str, y_star_str, zoom_scale_str, h = .001):
+        delta = float(zoom_scale_str) if zoom_scale_str else 1
         fig = Figure(figsize=(5, 4), dpi=100)
         ax = fig.add_subplot(111)
 
         # Define the zoomed-in region around (x*, y*)
         x_star = float(x_star_str) if x_star_str else 0
         y_star = float(y_star_str) if y_star_str else 0
-        delta = 2
         x = np.linspace(x_star - delta, x_star + delta, 100)
         y = np.linspace(y_star - delta, y_star + delta, 100)
         X, Y = np.meshgrid(x, y)
@@ -184,20 +198,32 @@ class LagrangeMultiplierApp:
         try:
             # Level curve of f passing through (x*, y*)
             f_value_at_star = eval(f_str, {"x": x_star, "y": y_star, "np": np})
+            g_value_at_star = eval(g_str, {"x": x_star, "y": y_star, "np": np})
             if np.min(Z) <= f_value_at_star <= np.max(Z):
                 ax.contour(X, Y, Z, levels=[f_value_at_star], colors='blue', linewidths=2)
 
             # Constraint curve g(x, y) = c
             G = eval(g_str, {"x": X, "y": Y, "np": np})
             if np.min(G) <= c <= np.max(G):
-                ax.contour(X, Y, G, levels=[c], colors='red', linewidths=2, linestyles='dashed')
+                ax.contour(X, Y, G, levels=[c], colors='red', linewidths=2)
 
             # Gradient of f at (x*, y*)
-            f_x = np.gradient(Z, axis=1)
-            f_y = np.gradient(Z, axis=0)
-            grad_f_x = eval(f_str, {"x": x_star + 0.01, "y": y_star, "np": np}) - f_value_at_star
-            grad_f_y = eval(f_str, {"x": x_star, "y": y_star + 0.01, "np": np}) - f_value_at_star
-            ax.quiver(x_star, y_star, grad_f_x, grad_f_y, color='green', scale=10, width=0.005)
+            grad_f_x = (1/h) * (eval(f_str, {"x": x_star + h, "y": y_star, "np": np}) - f_value_at_star)
+            grad_f_y = (1/h) * (eval(f_str, {"x": x_star, "y": y_star + h, "np": np}) - f_value_at_star)
+            ax.quiver(x_star, y_star, grad_f_x, grad_f_y, color='blue', scale = 10)
+
+            grad_g_x = (1/h) * (eval(g_str, {"x": x_star + h, "y": y_star, "np": np}) - g_value_at_star)
+            grad_g_y = (1/h) * (eval(g_str, {"x": x_star, "y": y_star + h, "np": np}) - g_value_at_star)
+            ax.quiver(x_star, y_star, grad_g_x, grad_g_y, color='red', scale = 10)
+
+            vmin = np.min(Z)
+            vmax = np.max(Z)
+            v0 = eval(f_str, {"x": x_star, "y": y_star, "np": np})
+
+            norm = plt.cm.colors.TwoSlopeNorm(vmin=vmin, vcenter=v0, vmax=vmax)
+            heatmap = ax.imshow(Z, extent=(x_star - delta, x_star + delta, y_star - delta, y_star + delta), origin='lower', cmap='RdBu_r', alpha=0.7, aspect='auto', norm = norm)
+            fig.colorbar(heatmap, ax=ax, label='f(x, y)')
+
         except Exception as e:
             print(f"Error in zoomed-in plot: {e}")
             return
