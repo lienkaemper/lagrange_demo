@@ -10,7 +10,7 @@ class LagrangeMultiplierApp:
         self.root = root
         self.root.title("Lagrange Multipliers Demonstration")
 
-        # Input fields for f(x, y) and g(x, y) = c
+        # Input fields 
         self.create_input_fields()
 
         # Placeholder for plots
@@ -22,26 +22,32 @@ class LagrangeMultiplierApp:
 
         ttk.Label(frame, text="Objective Function f(x, y):").grid(row=0, column=0, sticky=tk.W)
         self.f_entry = ttk.Entry(frame, width=30)
+        self.f_entry.insert(0, "x**2 + y**2")  # Default example
         self.f_entry.grid(row=0, column=1, padx=5)
 
         ttk.Label(frame, text="Constraint g(x, y) = c:").grid(row=1, column=0, sticky=tk.W)
         self.g_entry = ttk.Entry(frame, width=30)
+        self.g_entry.insert(0, "x*y")
         self.g_entry.grid(row=1, column=1, padx=5)
 
         ttk.Label(frame, text="c:").grid(row=2, column=0, sticky=tk.W)
         self.c_entry = ttk.Entry(frame, width=10)
+        self.c_entry.insert(0, "3")
         self.c_entry.grid(row=2, column=1, sticky=tk.W, padx=5)
 
         ttk.Label(frame, text="Zoom Point (x*, y*):").grid(row=3, column=0, sticky=tk.W)
         self.x_star_entry = ttk.Entry(frame, width=10)
         self.x_star_entry.grid(row=3, column=1, sticky=tk.W, padx=5)
+        self.x_star_entry.insert(0, "1")
         self.y_star_entry = ttk.Entry(frame, width=10)
         self.y_star_entry.grid(row=3, column=1, sticky=tk.E, padx=5)
+        self.y_star_entry.insert(0, "3")
 
         ttk.Label(frame, text="Zoom Scale:").grid(row=4, column=0, sticky=tk.W)
         self.zoom_scale_entry = ttk.Entry(frame, width=10)
         self.zoom_scale_entry.grid(row=4, column=1, sticky=tk.W, padx=5)
-
+        self.zoom_scale_entry.insert(0, "1")
+        
         # Checkboxes for selecting plots
         self.plot_3d_var = tk.BooleanVar(value=True)
         self.plot_2d_var = tk.BooleanVar(value=True)
